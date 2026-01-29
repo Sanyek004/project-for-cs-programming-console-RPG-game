@@ -2,6 +2,7 @@
 #include <string>
 #include <iomanip> // Для красивого форматирования вывода
 #include <ctime> // Для генерации рандомных числовых значений
+#include <string>
 
 class Character {
 protected:
@@ -106,13 +107,99 @@ public:
     }
 };
 
+class Item {
+protected:
+    std::string type;
+    int effect;
+public:
+    // Конструктор с параметрами для инициализации
+    Item(std::string t, int eff)
+        : type(t), effect(eff) {}
+
+    // Виртуальный деструктор (обязателен для базовых классов)
+    virtual ~Item() {}
+
+    // Виртуальная функция (делает класс абстрактным)
+    // Наследники обязаны реализовать этот метод
+    virtual std::string getName() const = 0;
+
+    // Метод вывода характеристик
+    virtual void printStats() const {
+        std::cout << "Item: " << getName() << std::endl;
+        std::cout << "Type: " << type << std::endl;
+    }
+};
+
+class Potion_Health : public Item {
+public:
+    Potion_Health() : Item(
+        "Magic",
+        25
+    ) {}
+
+    virtual ~Potion_Health() {}
+
+    std::string getName() const override {
+        return "Potion Health";
+    }
+};
+
+class Coin : public Item {
+public:
+    Coin() : Item(
+        "Attack",
+        5
+    ) {}
+
+    virtual ~Coin() {}
+
+    std::string getName() const override {
+        return "Coin";
+    }
+};
+
+class Glock_17 : public Item {
+public:
+    Glock_17() : Item(
+        "Attack",
+        100
+    ) {}
+
+    virtual ~Glock_17() {}
+
+    std::string getName() const override {
+        return "Glock 17";
+    }
+};
+
+class Annihilator_Cannon : public Item {
+public:
+    Annihilator_Cannon() : Item(
+        "Attack",
+        500
+    ) {}
+
+    virtual ~Annihilator_Cannon() {}
+
+    std::string getName() const override {
+        return "Annihilator Cannon";
+    }
+};
+
+
+class Inventory {
+public:
+    Inventory() {}
+    ~Inventory() {};
+
+
+};
+
 int main()
 {
     std::srand(static_cast<unsigned int>(std::time(0)));
 
-    Dwarves d1;
 
-    d1.printStats();
 
     return 0;
 }
