@@ -4,6 +4,7 @@
 #include <ctime> // Для генерации рандомных числовых значений
 #include <string>
 #include <vector>
+#include <windows.h>
 
 class Item {
 public:
@@ -328,11 +329,110 @@ public:
     }
 };
 
+class Room {
+protected:
+   
+public:
+    // Конструктор с параметрами для инициализации
+    Room() {}
+
+    // Виртуальный деструктор (обязателен для базовых классов)
+    virtual ~Room() {}
+
+    // Виртуальная функция (делает класс абстрактным)
+    // Наследники обязаны реализовать этот метод
+    virtual std::string getName() const = 0;
+
+    // Метод вывода характеристик
+    virtual void printStats() const 
+    {
+
+    }
+};
+
+class Room_Relax : public Room {
+
+public:
+    Room_Relax() : Room()
+    {
+        std::cout << "There is Room Relax. Time break, bro!" << std::endl;
+    }
+
+    virtual ~Room_Relax() {}
+
+    std::string getName() const override {
+        return "Room Relax";
+    }
+};
+
+class Room_Chest : public Room {
+
+public:
+    Room_Chest() : Room()
+    {
+        std::cout << "There is Room Chest. It's time to take items!" << std::endl;
+
+    }
+
+    virtual ~Room_Chest() {};
+
+    std::string getName() const override {
+        return "Room Chest";
+    }
+
+    // Самый главный метод с сундуком
+    void loot(Character* player)
+    {
+        std::cout << "You see a chest opening..." << std::endl;
+        Sleep(3000);
+
+        // Генерируем случайное число от 0 до 4
+        int randomChance = std::rand() % 5;
+
+        Item* newItem = nullptr;
+
+        switch (randomChance)
+        {
+        case 0:
+            newItem = new Potion_Health();
+            break;
+
+        case 1:
+            newItem = new Coin();
+            break;
+
+        case 2:
+            newItem = new Glock_17();
+            break;
+
+        case 3:
+            newItem = new Annihilator_Cannon();
+            break;
+
+        case 4:
+            newItem = new Kevlar_Vest();
+            break;
+
+
+        default:
+            newItem = new Coin();
+            break;
+        }
+
+        if (newItem != nullptr)
+        {
+            std::cout << "Luck in on your side! You found: " << newItem->getName() << std::endl;
+            // Добавляем предмет найденный в инвентарь персонажа
+            player->pickUp(newItem);
+        }
+    }
+};
+
 int main()
 {
     std::srand(static_cast<unsigned int>(std::time(0)));
 
-    
+
 
     return 0;
 }
