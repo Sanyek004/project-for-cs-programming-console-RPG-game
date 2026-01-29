@@ -4,7 +4,7 @@
 #include <ctime> // Для генерации рандомных числовых значений
 #include <string>
 #include <vector>
-#include <windows.h>
+#include <algorithm>
 
 class Item {
 public:
@@ -168,19 +168,45 @@ public:
         return nullptr;
     }
 
+    // Метод для извлечение предмета из инвентаря
+    Item* detachItem(int index)
+    {
+        if (index >= 0 && index < items.size())
+        {
+            Item* itemToGive = items[index];
+            // Удаляем предмет только из вектора
+            items.erase(items.begin() + index);
+            return itemToGive;
+        }
+        return nullptr;
+    }
+
+    // Ищет предмет определенного типа, удаляет его и возвращает эффект. Если нет - возвращает 0.
+    int consumeItemByType(std::string type) {
+        for (size_t i = 0; i < items.size(); ++i) {
+            if (items[i]->type == type) {
+                int effect = items[i]->effect;
+                std::cout << " [Inventory] Used: " << items[i]->getName() << std::endl;
+                delete items[i];
+                items.erase(items.begin() + i);
+                return effect;
+            }
+        }
+        return 0;
+    }
 };
 
 class Character {
 protected:
     // Характеристики персонажа
     // Используем protected, чтобы классы-наследники имели к ним доступ
-    int hp;          // Здоровье
-    int attack;      // Сила атаки
-    int defense;     // Защита
-    int agility;     // Ловкость
-    double height;   // Рост
-    double weight;   // Вес
-    // | FOR GAME |
+    int hp;
+    int maxHp; // Добавлено чтобы не лечиться до бесконечности
+    int attack;
+    int defense;
+    int agility;
+    double height;
+    double weight;
     int skills;
     int level;
 
@@ -192,9 +218,9 @@ protected:
 public:
     // Конструктор с параметрами для инициализации
     Character(int h, int atk, int def, int agi, double he, double we, int sk, int lvl)
-        : hp(h), attack(atk), defense(def), agility(agi), height(he), weight(we), skills(sk), level(lvl) 
+        : hp(h), maxHp(h), attack(atk), defense(def), agility(agi), height(he), weight(we), skills(sk), level(lvl)
     {
-        gearSlots = { 0,0 };
+        gearSlots = { 0, 0 };
     }
 
     // Виртуальный деструктор (обязателен для базовых классов)
@@ -203,6 +229,9 @@ public:
     // Виртуальная функция (делает класс абстрактным)
     // Наследники обязаны реализовать этот метод
     virtual std::string getName() const = 0;
+
+    bool isAlive() const { return hp > 0; }
+    int getHP() const { return hp; }
 
     // Метод вывода характеристик
     virtual void printStats() const {
@@ -265,6 +294,71 @@ public:
         else
         {
             std::cout << ">> Cannot equip item of type: " << item->type << std::endl;
+        }
+    }
+
+    // Расчёт полного урона
+    int calculateTotalDamage() const {
+        int baseDmg = attack + gearSlots[0];
+
+        // Шанс критического урона зависит от ловкости (каждые 10 ловкости = 1% крит. урона, минимум 5%)
+        int critChance = 5 + (agility / 10);
+        bool isCrit = (std::rand() % 100) < critChance;
+
+        if (isCrit) {
+            std::cout << "CRITICAL HIT! ";
+            return static_cast<int>(baseDmg * 1.5);
+        }
+        return baseDmg;
+    }
+
+    // Расчёт полной защиты
+    int calculateTotalDefense() const {
+        return defense + gearSlots[1];
+    }
+
+    // Получение урона с учётом уклонение и брони
+    // isDodging - флаг, пытается ли персонаж активно уклоняться
+    void takeDamage(int incomingDamage, bool isDodging) {
+        // Шанс уклонения
+        // Базовый: Ловкость * 0.5
+        // Если выбрано действие "Уклонение": Ловкость * 2 + 30% бонус
+        int dodgeChance = static_cast<int>(agility * 0.5);
+        if (isDodging) {
+            dodgeChance = (agility * 2) + 30;
+            std::cout << getName() << " takes a defensive stance!" << std::endl;
+        }
+
+        // Ограничим шанс уклонения 90%
+        if (dodgeChance > 90) dodgeChance = 90;
+
+        if ((std::rand() % 100) < dodgeChance) {
+            std::cout << ">>> " << getName() << " DODGED the attack! (0 Damage)" << std::endl;
+            return;
+        }
+
+        // Расчет чистого урона
+        int mitigation = calculateTotalDefense();
+        // Рандомный разброс защиты +/- 10%
+        mitigation += (std::rand() % 5) - 2;
+
+        int finalDamage = std::max(1, incomingDamage - mitigation); // Минимум 1 урон
+
+        hp -= finalDamage;
+        std::cout << ">>> " << getName() << " takes " << finalDamage << " damage! (Defended: " << mitigation << ")" << std::endl;
+        std::cout << "HP Left: " << hp << "/" << maxHp << std::endl;
+    }
+
+    // Восстановление ХП
+    void heal() {
+        int healAmount = inventory.consumeItemByType("Magic");
+        if (healAmount > 0) {
+            hp += healAmount;
+            if (hp > maxHp) hp = maxHp;
+            std::cout << getName() << " healed for " << healAmount << " HP. Current HP: " << hp << std::endl;
+        }
+        else {
+            std::cout << "No potions found in inventory!" << std::endl;
         }
     }
 };
@@ -384,7 +478,6 @@ public:
     void loot(Character* player)
     {
         std::cout << "You see a chest opening..." << std::endl;
-        Sleep(3000);
 
         // Генерируем случайное число от 0 до 4
         int randomChance = std::rand() % 5;
@@ -427,6 +520,98 @@ public:
         }
     }
 };
+
+class Enemy : public Character {
+private:
+    int xpReward; // Опыт, который дается за убийство
+public:
+    // Конструктор генерирует случайного врага
+    Enemy() : Character(
+        std::rand() % 40 + 50,  // HP 
+        std::rand() % 10 + 10,    // Attack
+        std::rand() % 5 + 1,    // Defense
+        std::rand() % 10 + 1,    // Agility
+        170,                    // Height
+        80,                     // Weight
+        0,                      // Skills
+        1                       // Level
+    ) {}
+
+    virtual ~Enemy() {}
+
+    std::string getName() const override {
+        return "Dark Horse";
+    }
+
+    // Логика атаки врага, принимающая во внимание состояние игрока
+    void attackPlayer(Character* player, bool playerIsDodging) {
+        std::cout << "\n--- Enemy's Turn ---" << std::endl;
+        int enemyDmg = this->calculateTotalDamage();
+        std::cout << getName() << " attacks with power " << enemyDmg << "!" << std::endl;
+
+        // Враг наносит урон, игрок пытается защититься
+        player->takeDamage(enemyDmg, playerIsDodging);
+    }
+
+};
+
+// Функция боя
+void battle(Character* player, Enemy* enemy) {
+    std::cout << "\n!!! A WILD " << enemy->getName() << " APPEARED !!!" << std::endl;
+    std::cout << "Enemy Stats -> HP: " << enemy->getHP() << std::endl;
+
+    while (player->isAlive() && enemy->isAlive()) {
+        std::cout << "\n========================================" << std::endl;
+        std::cout << "Your HP: " << player->getHP() << " | Enemy HP: " << enemy->getHP() << std::endl;
+        std::cout << "Choose action:\n1. Attack\n2. Use Potion\n3. Dodge\n4. Inventory\n> ";
+
+        int choice;
+        std::cin >> choice;
+
+        bool playerIsDodging = false; // Флаг уклонения на этот ход
+
+        // --- ХОД ИГРОКА ---
+        switch (choice) {
+        case 1: // Атака
+        {
+            int dmg = player->calculateTotalDamage();
+            std::cout << "You attack for " << dmg << " raw damage!" << std::endl;
+            enemy->takeDamage(dmg, false); // Враг не уклоняется (для простоты)
+            break;
+        }
+        case 2: // Предмет
+            player->heal();
+            break;
+        case 3: // Уклонение
+            playerIsDodging = true;
+            std::cout << "You focus on evading the next attack..." << std::endl;
+            break;
+        case 4:
+            player->checkInventory();
+            std::cout << "Enter item index to equip (or 0 to cancel): ";
+            int eq;
+            std::cin >> eq;
+            if (eq > 0) player->equipItem(eq);
+            continue; // Возвращаемся в начало цикла, не тратя ход на просмотр
+        default:
+            std::cout << "You stumbled and lost your turn!" << std::endl;
+        }
+
+        // Если враг умер от атаки игрока
+        if (!enemy->isAlive()) {
+            std::cout << "\nVICTORY! The enemy is defeated." << std::endl;
+            break;
+        }
+
+        // --- ХОД ВРАГА ---
+        // Враг атакует, передаем ему информацию, уклоняется ли игрок
+        enemy->attackPlayer(player, playerIsDodging);
+
+        if (!player->isAlive()) {
+            std::cout << "\nGAME OVER... You died." << std::endl;
+        }
+    }
+}
 
 int main()
 {
