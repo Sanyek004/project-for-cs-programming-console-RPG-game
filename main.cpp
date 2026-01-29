@@ -3,6 +3,171 @@
 #include <iomanip> // Для красивого форматирования вывода
 #include <ctime> // Для генерации рандомных числовых значений
 #include <string>
+#include <vector>
+
+class Item {
+public:
+    std::string type;
+    int effect;
+public:
+    // Конструктор с параметрами для инициализации
+    Item(std::string t, int eff)
+        : type(t), effect(eff) {}
+
+    // Виртуальный деструктор (обязателен для базовых классов)
+    virtual ~Item() {}
+
+    // Виртуальная функция (делает класс абстрактным)
+    // Наследники обязаны реализовать этот метод
+    virtual std::string getName() const = 0;
+
+    // Метод вывода характеристик
+    virtual void printStats() const {
+        std::cout << "Item: " << getName() << std::endl;
+        std::cout << "Type: " << type << std::endl;
+    }
+};
+
+class Potion_Health : public Item {
+public:
+    Potion_Health() : Item(
+        "Magic",
+        25
+    ) {}
+
+    virtual ~Potion_Health() {}
+
+    std::string getName() const override {
+        return "Potion Health";
+    }
+};
+
+class Coin : public Item {
+public:
+    Coin() : Item(
+        "Currency",
+        5
+    ) {}
+
+    virtual ~Coin() {}
+
+    std::string getName() const override {
+        return "Coin";
+    }
+};
+
+class Glock_17 : public Item {
+public:
+    Glock_17() : Item(
+        "Attack",
+        100
+    ) {}
+
+    virtual ~Glock_17() {}
+
+    std::string getName() const override {
+        return "Glock 17";
+    }
+};
+
+class Annihilator_Cannon : public Item {
+public:
+    Annihilator_Cannon() : Item(
+        "Attack",
+        500
+    ) {}
+
+    virtual ~Annihilator_Cannon() {}
+
+    std::string getName() const override {
+        return "Annihilator Cannon";
+    }
+};
+
+class Kevlar_Vest : public Item {
+public:
+    Kevlar_Vest() : Item("Armor", 150) {} // 150 - прочность
+    ~Kevlar_Vest() {}
+    std::string getName() const override { return "Kevlar Vest"; }
+};
+
+
+class Inventory {
+private:
+    // Храним указатели на базовый класс Item поскольку предметы
+    // могут быть разными
+    std::vector<Item*> items;
+public:
+    Inventory() {}
+
+    ~Inventory() {
+        // В Деструкторе очищаем память, так как храним указатели
+        for (Item* item : items)
+        {
+            delete item;
+        }
+        items.clear();
+    }
+
+    void addItem(Item* item)
+    {
+        items.push_back(item);
+        std::cout << "Added [" << item->getName() << "] to inventory. " << std::endl;
+    }
+
+    void showItems() const
+    {
+        std::cout << "=== INVENTORY ===" << std::endl;
+        if (items.empty())
+        {
+            std::cout << "Inventory is Empty" << std::endl;
+        }
+        else
+        {
+            for (int i = 0; i < items.size(); ++i)
+            {
+                std::cout << i + 1 << ". ";
+                items[i]->printStats();
+            }
+            std::cout << "----------------------------" << std::endl;
+        }
+    }
+
+    void dropItem(int index)
+    {
+        // "index - 1" так как пользователь вводит число от 1, а вектор с 0
+        int vectorIndex = index - 1;
+
+        if (vectorIndex >= 0 && vectorIndex < items.size())
+        {
+            std::cout << "Dropped [" << items[vectorIndex]->getName() << "]" << std::endl;
+
+            delete items[vectorIndex]; // Удаляем объект из памяти
+            items.erase(items.begin() + vectorIndex); // Удаляем указатель из вектора
+        }
+        else
+        {
+            std::cout << "Invalid item number!" << std::endl;
+        }
+    }
+
+    // Получение количество предметов
+    int getSize() const
+    {
+        return items.size();
+    }
+
+    // Метод для получения указателя на предмет по индексу (чтобы надеть на экипировку что-то)
+    Item* getItem(int index)
+    {
+        if (index >= 0 && index < items.size())
+        {
+            return items[index];
+        }
+        return nullptr;
+    }
+
+};
 
 class Character {
 protected:
@@ -17,10 +182,19 @@ protected:
     // | FOR GAME |
     int skills;
     int level;
+
+    // Инвентарь как часть персонажа
+    Inventory inventory;
+
+    // Вектор слотов экипировки
+    std::vector<int> gearSlots;
 public:
     // Конструктор с параметрами для инициализации
     Character(int h, int atk, int def, int agi, double he, double we, int sk, int lvl)
-        : hp(h), attack(atk), defense(def), agility(agi), height(he), weight(we), skills(sk), level(lvl) {}
+        : hp(h), attack(atk), defense(def), agility(agi), height(he), weight(we), skills(sk), level(lvl) 
+    {
+        gearSlots = { 0,0 };
+    }
 
     // Виртуальный деструктор (обязателен для базовых классов)
     virtual ~Character() {}
@@ -44,6 +218,53 @@ public:
         std::cout << "GAME STATS:" << std::endl;
         std::cout << "Skills: " << skills << std::endl;
         std::cout << "Level: " << level << std::endl;
+    }
+
+    // Метод подбора предмета
+    void pickUp(Item* item)
+    {
+        inventory.addItem(item);
+    }
+
+    // Метод просмотра инвентаря
+    void checkInventory() const
+    {
+        std::cout << getName() << " checks their inventory: " << std::endl;
+        inventory.showItems();
+    }
+
+    // Метод выбрасывания предмета
+    void throwAwayItem(int index)
+    {
+        inventory.dropItem(index);
+    }
+
+    // Метод надевания предмета на экипировку
+    void equipItem(int inventoryIndex)
+    {
+        // Получаем индекс массива
+        Item* item = inventory.getItem(inventoryIndex - 1);
+
+        if (item == nullptr)
+        {
+            std::cout << "No such item to equip!" << std::endl;
+            return;
+        }
+
+        if (item->type == "Attack")
+        {
+            gearSlots[0] = item->effect; // Записываем сколько урона будет давать опред. вид оружие в нулевой слот
+            std::cout << " >> Equipped Weapon: " << item->getName() << " ( +" << item->effect << " Damage)" << std::endl;
+        }
+        else if (item->type == "Armor")
+        {
+            gearSlots[1] = item->effect; // Записываем числовое значение брони в первый слот
+            std::cout << ">> Equipped Armor: " << item->getName() << " (" << item->effect << " Durability)" << std::endl;
+        }
+        else
+        {
+            std::cout << ">> Cannot equip item of type: " << item->type << std::endl;
+        }
     }
 };
 
@@ -107,99 +328,11 @@ public:
     }
 };
 
-class Item {
-protected:
-    std::string type;
-    int effect;
-public:
-    // Конструктор с параметрами для инициализации
-    Item(std::string t, int eff)
-        : type(t), effect(eff) {}
-
-    // Виртуальный деструктор (обязателен для базовых классов)
-    virtual ~Item() {}
-
-    // Виртуальная функция (делает класс абстрактным)
-    // Наследники обязаны реализовать этот метод
-    virtual std::string getName() const = 0;
-
-    // Метод вывода характеристик
-    virtual void printStats() const {
-        std::cout << "Item: " << getName() << std::endl;
-        std::cout << "Type: " << type << std::endl;
-    }
-};
-
-class Potion_Health : public Item {
-public:
-    Potion_Health() : Item(
-        "Magic",
-        25
-    ) {}
-
-    virtual ~Potion_Health() {}
-
-    std::string getName() const override {
-        return "Potion Health";
-    }
-};
-
-class Coin : public Item {
-public:
-    Coin() : Item(
-        "Attack",
-        5
-    ) {}
-
-    virtual ~Coin() {}
-
-    std::string getName() const override {
-        return "Coin";
-    }
-};
-
-class Glock_17 : public Item {
-public:
-    Glock_17() : Item(
-        "Attack",
-        100
-    ) {}
-
-    virtual ~Glock_17() {}
-
-    std::string getName() const override {
-        return "Glock 17";
-    }
-};
-
-class Annihilator_Cannon : public Item {
-public:
-    Annihilator_Cannon() : Item(
-        "Attack",
-        500
-    ) {}
-
-    virtual ~Annihilator_Cannon() {}
-
-    std::string getName() const override {
-        return "Annihilator Cannon";
-    }
-};
-
-
-class Inventory {
-public:
-    Inventory() {}
-    ~Inventory() {};
-
-
-};
-
 int main()
 {
     std::srand(static_cast<unsigned int>(std::time(0)));
 
-
+    
 
     return 0;
 }
