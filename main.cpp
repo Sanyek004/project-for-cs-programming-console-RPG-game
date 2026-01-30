@@ -1,194 +1,152 @@
 #include <iostream>
 #include <string>
-#include <iomanip> // Для красивого форматирования вывода
-#include <ctime> // Для генерации рандомных числовых значений
-#include <string>
+#include <iomanip>
+#include <ctime>
 #include <vector>
 #include <algorithm>
+
+// === 1. ПРЕДМЕТЫ ===
 
 class Item {
 public:
     std::string type;
     int effect;
 public:
-    // Конструктор с параметрами для инициализации
-    Item(std::string t, int eff)
-        : type(t), effect(eff) {}
-
-    // Виртуальный деструктор (обязателен для базовых классов)
+    Item(std::string t, int eff) : type(t), effect(eff) {}
     virtual ~Item() {}
-
-    // Виртуальная функция (делает класс абстрактным)
-    // Наследники обязаны реализовать этот метод
     virtual std::string getName() const = 0;
 
-    // Метод вывода характеристик
     virtual void printStats() const {
-        std::cout << "Item: " << getName() << std::endl;
-        std::cout << "Type: " << type << std::endl;
+        std::cout << getName() << " [" << type << " +" << effect << "]";
     }
 };
 
 class Potion_Health : public Item {
 public:
-    Potion_Health() : Item(
-        "Magic",
-        35
-    ) {}
-
-    virtual ~Potion_Health() {}
-
-    std::string getName() const override {
-        return "Potion Health";
-    }
+    Potion_Health() : Item("Magic", 35) {}
+    std::string getName() const override { return "Health Potion"; }
 };
 
 class Coin : public Item {
 public:
-    Coin() : Item(
-        "Currency",
-        10
-    ) {}
-
-    virtual ~Coin() {}
-
-    std::string getName() const override {
-        return "Coin";
-    }
+    Coin() : Item("Currency", 10) {}
+    std::string getName() const override { return "Gold Coin"; }
 };
 
-class Glock_17 : public Item {
+class Iron_Sword : public Item {
 public:
-    Glock_17() : Item(
-        "Attack",
-        25
-    ) {}
-
-    virtual ~Glock_17() {}
-
-    std::string getName() const override {
-        return "Glock 17";
-    }
+    Iron_Sword() : Item("Attack", 15) {}
+    std::string getName() const override { return "Iron Sword"; }
 };
 
-class Annihilator_Cannon : public Item {
+class Great_Axe : public Item {
 public:
-    Annihilator_Cannon() : Item(
-        "Attack",
-        75
-    ) {}
-
-    virtual ~Annihilator_Cannon() {}
-
-    std::string getName() const override {
-        return "Annihilator Cannon";
-    }
+    Great_Axe() : Item("Attack", 30) {}
+    std::string getName() const override { return "Great Axe"; }
 };
 
-class Kevlar_Vest : public Item {
+class Leather_Armor : public Item {
 public:
-    Kevlar_Vest() : Item("Armor", 20) {} 
-    ~Kevlar_Vest() {}
-    std::string getName() const override { return "Kevlar Vest"; }
+    Leather_Armor() : Item("Armor", 10) {}
+    std::string getName() const override { return "Leather Armor"; }
 };
 
+class Plate_Mail : public Item {
+public:
+    Plate_Mail() : Item("Armor", 25) {}
+    std::string getName() const override { return "Plate Mail"; }
+};
+
+// Функция-фабрика для генерации случайного лута
+Item* generateRandomLoot() {
+    int chance = std::rand() % 100;
+    if (chance < 40) return new Potion_Health();
+    if (chance < 60) return new Coin();
+    if (chance < 75) return new Leather_Armor();
+    if (chance < 85) return new Iron_Sword();
+    if (chance < 95) return new Plate_Mail();
+    return new Great_Axe();
+}
+
+// === 2. ИНВЕНТАРЬ (с ограничением места) ===
 
 class Inventory {
 private:
-    // Храним указатели на базовый класс Item поскольку предметы
-    // могут быть разными
     std::vector<Item*> items;
+    const size_t CAPACITY = 5; // Ограничение инвентаря по ТЗ
 public:
     Inventory() {}
 
     ~Inventory() {
-        // В Деструкторе очищаем память, так как храним указатели
-        for (Item* item : items)
-        {
-            delete item;
-        }
+        for (Item* item : items) delete item;
         items.clear();
     }
 
-    void addItem(Item* item)
-    {
-        items.push_back(item);
-        std::cout << "Added [" << item->getName() << "] to inventory. " << std::endl;
+    bool isFull() const { return items.size() >= CAPACITY; }
+
+    void addItem(Item* item) {
+        if (isFull()) {
+            std::cout << "\n[!] Inventory is FULL! Cannot pick up " << item->getName() << std::endl;
+            std::cout << "Do you want to drop an item to take this one? (y/n): ";
+            char choice;
+            std::cin >> choice;
+            if (choice == 'y') {
+                showItems();
+                std::cout << "Enter number to drop (0 to cancel): ";
+                int idx;
+                std::cin >> idx;
+                if (idx > 0 && idx <= items.size()) {
+                    dropItem(idx);
+                    items.push_back(item);
+                    std::cout << "Took " << item->getName() << "." << std::endl;
+                    return;
+                }
+            }
+            std::cout << "You left the " << item->getName() << " behind." << std::endl;
+            delete item; // Удаляем, так как не подобрали
+        }
+        else {
+            items.push_back(item);
+            std::cout << " [Loot] Added [" << item->getName() << "]." << std::endl;
+        }
     }
 
-    void showItems() const
-    {
-        std::cout << "=== INVENTORY ===" << std::endl;
-        if (items.empty())
-        {
-            std::cout << "Inventory is Empty" << std::endl;
+    void showItems() const {
+        std::cout << "\n=== INVENTORY (" << items.size() << "/" << CAPACITY << ") ===" << std::endl;
+        if (items.empty()) {
+            std::cout << " (Empty)" << std::endl;
         }
-        else
-        {
-            for (int i = 0; i < items.size(); ++i)
-            {
+        else {
+            for (int i = 0; i < items.size(); ++i) {
                 std::cout << i + 1 << ". ";
                 items[i]->printStats();
+                std::cout << std::endl;
             }
-            std::cout << "----------------------------" << std::endl;
         }
+        std::cout << "============================" << std::endl;
     }
 
-    void dropItem(int index)
-    {
-        // "index - 1" так как пользователь вводит число от 1, а вектор с 0
-        int vectorIndex = index - 1;
-
-        if (vectorIndex >= 0 && vectorIndex < items.size())
-        {
-            std::cout << "Dropped [" << items[vectorIndex]->getName() << "]" << std::endl;
-
-            delete items[vectorIndex]; // Удаляем объект из памяти
-            items.erase(items.begin() + vectorIndex); // Удаляем указатель из вектора
-        }
-        else
-        {
-            std::cout << "Invalid item number!" << std::endl;
+    void dropItem(int index) {
+        int vecIdx = index - 1;
+        if (vecIdx >= 0 && vecIdx < items.size()) {
+            std::cout << "Dropped " << items[vecIdx]->getName() << "." << std::endl;
+            delete items[vecIdx];
+            items.erase(items.begin() + vecIdx);
         }
     }
-
-    // Получение количество предметов
-    int getSize() const
-    {
-        return items.size();
-    }
-
-    // Метод для получения указателя на предмет по индексу (чтобы надеть на экипировку что-то)
-    Item* getItem(int index)
-    {
-        if (index >= 0 && index < items.size())
-        {
-            return items[index];
-        }
+Item* getItem(int index) {
+        if (index >= 0 && index < items.size()) return items[index];
         return nullptr;
     }
 
-    // Метод для извлечение предмета из инвентаря
-    Item* detachItem(int index)
-    {
-        if (index >= 0 && index < items.size())
-        {
-            Item* itemToGive = items[index];
-            // Удаляем предмет только из вектора
-            items.erase(items.begin() + index);
-            return itemToGive;
-        }
-        return nullptr;
-    }
-
-    // Ищет предмет определенного типа, удаляет его и возвращает эффект. Если нет - возвращает 0.
     int consumeItemByType(std::string type) {
         for (size_t i = 0; i < items.size(); ++i) {
             if (items[i]->type == type) {
                 int effect = items[i]->effect;
-                std::cout << " [Inventory] Used: " << items[i]->getName() << std::endl;
-                delete items[i];
+                std::cout << " [Used] " << items[i]->getName() << std::endl;
+                Item* temp = items[i];
                 items.erase(items.begin() + i);
+                delete temp;
                 return effect;
             }
         }
@@ -196,13 +154,19 @@ public:
     }
 };
 
+// === 3. ПЕРСОНАЖИ ===
+
 class Character {
 protected:
-    int hp;
-    int maxHp;
+    std::string raceName;
+    int hp, maxHp;
     int attack;
     int defense;
     int agility;
+    
+    // Новые характеристики по ТЗ
+    int height; // см
+    int weight; // кг
 
     int level;
     int currentXp;
@@ -210,38 +174,55 @@ protected:
     int skillPoints;
 
     Inventory inventory;
-    std::vector<int> gearSlots; // 0: Weapon Dmg, 1: Armor Def
+    std::vector<int> gearSlots; // 0: Weapon, 1: Armor
 
 public:
-    Character(int h, int atk, int def, int agi, int lvl)
-        : hp(h), maxHp(h), attack(atk), defense(def), agility(agi), level(lvl)
+    Character(std::string rName, int h, int atk, int def, int agi, int hght, int wght)
+        : raceName(rName), hp(h), maxHp(h), attack(atk), defense(def), agility(agi), height(hght), weight(wght)
     {
+        level = 1;
         gearSlots = { 0, 0 };
         currentXp = 0;
         xpToNextLevel = 100;
         skillPoints = 0;
+
+        // ТЗ: Рост и вес могут влиять на характеристики.
+        // Реализация: Если вес большой (>90), снижаем ловкость, но повышаем макс ХП (выносливость)
+        if (weight > 90) {
+            this->agility -= 2;
+            this->maxHp += 10;
+            this->hp += 10;
+        }
+        // Если маленький рост, бонус к уклонению
+        if (height < 150) {
+            this->agility += 2;
+        }
     }
 
     virtual ~Character() {}
-    virtual std::string getName() const = 0;
-
+    
+    std::string getRace() const { return raceName; }
     bool isAlive() const { return hp > 0; }
     int getHP() const { return hp; }
     int getMaxHP() const { return maxHp; }
     int getLevel() const { return level; }
     int getSkillPoints() const { return skillPoints; }
 
-    // Геттеры "чистых" статов для расчета баланса врага
     int getRawTotalAttack() const { return attack + gearSlots[0]; }
     int getRawTotalDefense() const { return defense + gearSlots[1]; }
 
+    void giveStarterLoot() {
+        inventory.addItem(new Potion_Health());
+    }
+
     void printStats() const {
-        std::cout << "\n=== HERO SHEET: " << getName() << " ===" << std::endl;
+        std::cout << "\n=== " << raceName << " Character Sheet ===" << std::endl;
         std::cout << " Lvl: " << level << " (" << currentXp << "/" << xpToNextLevel << " XP)" << std::endl;
         std::cout << " HP:  " << hp << "/" << maxHp << std::endl;
         std::cout << " Atk: " << attack << " (+" << gearSlots[0] << ")" << std::endl;
         std::cout << " Def: " << defense << " (+" << gearSlots[1] << ")" << std::endl;
         std::cout << " Agi: " << agility << std::endl;
+        std::cout << " Phys: " << height << "cm / " << weight << "kg" << std::endl;
         std::cout << " SP:  " << skillPoints << std::endl;
         std::cout << "=============================" << std::endl;
     }
@@ -250,10 +231,9 @@ public:
         currentXp -= xpToNextLevel;
         level++;
         skillPoints += 3;
-        xpToNextLevel = static_cast<int>(xpToNextLevel * 1.4);
-        hp = maxHp; // Полное лечение
-
-        std::cout << "\n*** LEVEL UP! -> " << level << " ***" << std::endl;
+        xpToNextLevel = static_cast<int>(xpToNextLevel * 1.5);
+        hp = maxHp; 
+        std::cout << "\n* LEVEL UP! -> " << level << " *" << std::endl;
     }
 
     void gainXp(int amount) {
@@ -268,26 +248,24 @@ public:
         inventory.addItem(item);
     }
 
-    void checkInventory() {
+    void manageInventory() {
         inventory.showItems();
-        std::cout << "Actions: (e)quip <num>, (u)se <num>, (c)lose: ";
+        std::cout << "Actions: (e)quip <num>, (u)se <num>, (d)rop <num>, (c)lose: ";
         char action;
         std::cin >> action;
-        if (action == 'e') {
-            int idx; std::cin >> idx;
-            equipItem(idx);
-        }
-        else if (action == 'u') {
-            heal();
-        }
-    }
+        
+        if (action == 'c') return;
 
-    void equipItem(int inventoryIndex) {
+        int idx;
+        std::cin >> idx;
+
+        if (action == 'e') equipItem(idx);
+        else if (action == 'u') healPotion();
+        else if (action == 'd') inventory.dropItem(idx);
+    }
+void equipItem(int inventoryIndex) {
         Item* item = inventory.getItem(inventoryIndex - 1);
-        if (!item) {
-            std::cout << "Invalid item." << std::endl;
-            return;
-        }
+        if (!item) return;
 
         if (item->type == "Attack") {
             gearSlots[0] = item->effect;
@@ -296,9 +274,6 @@ public:
         else if (item->type == "Armor") {
             gearSlots[1] = item->effect;
             std::cout << " >> Equipped Armor: " << item->getName() << std::endl;
-        }
-        else {
-            std::cout << " >> Cannot equip this item." << std::endl;
         }
     }
 
@@ -319,11 +294,10 @@ public:
         }
     }
 
-    // Боевая механика
     int calculateTotalDamage() const {
         int baseDmg = attack + gearSlots[0];
-        // Крит: каждые 5 ловкости = 1%
-        int critChance = 5 + (agility / 5);
+        // Влияние ловкости на крит
+        int critChance = 5 + (agility / 3);
         if ((std::rand() % 100) < critChance) {
             std::cout << " [CRITICAL!] ";
             return static_cast<int>(baseDmg * 1.5);
@@ -331,342 +305,278 @@ public:
         return baseDmg;
     }
 
-    int calculateTotalDefense() const {
-        return defense + gearSlots[1];
-    }
-
     void takeDamage(int incomingDamage, bool isDodging) {
-        // Шанс уклонения
         int dodgeChance = static_cast<int>(agility * 0.5);
         if (isDodging) {
-            dodgeChance = (agility * 2) + 25;
-            std::cout << " (" << getName() << " rolls to dodge...) ";
+            dodgeChance += 30;
+            std::cout << " (Dodging...) ";
         }
-        if (dodgeChance > 85) dodgeChance = 85; // Кап уклонения
+        if (dodgeChance > 80) dodgeChance = 80;
 
         if ((std::rand() % 100) < dodgeChance) {
-            std::cout << ">>> MISS! " << getName() << " dodged (" << dodgeChance << "% chance)!" << std::endl;
+            std::cout << ">>> MISS! You dodged!" << std::endl;
             return;
         }
 
-        int myDef = calculateTotalDefense();
-        // Защита не может блокировать более 80% урона, чтобы игра не зависала в 0 урона
-        int maxBlock = static_cast<int>(incomingDamage * 0.8);
-        int actualBlock = std::min(myDef, maxBlock);
-
-        // Добавим немного рандома в блок (+/- 2)
-        actualBlock += (std::rand() % 5) - 2;
-        if (actualBlock < 0) actualBlock = 0;
-
+        int myDef = defense + gearSlots[1];
+        int actualBlock = std::min(myDef, static_cast<int>(incomingDamage * 0.9));
         int finalDamage = std::max(1, incomingDamage - actualBlock);
 
         hp -= finalDamage;
-        std::cout << ">>> " << getName() << " hit for " << finalDamage << " dmg! (Armor blocked " << actualBlock << ")" << std::endl;
+        std::cout << ">>> Hit for " << finalDamage << " dmg! (Armor blocked " << actualBlock << ")" << std::endl;
     }
 
-    void heal() {
+    void healPotion() {
         int healAmount = inventory.consumeItemByType("Magic");
         if (healAmount > 0) {
             hp += healAmount;
             if (hp > maxHp) hp = maxHp;
-            std::cout << " >> Healed. HP: " << hp << "/" << maxHp << std::endl;
+            std::cout << " >> HP Restored. " << hp << "/" << maxHp << std::endl;
+        } else {
+            std::cout << "No potions!" << std::endl;
         }
-        else {
-            std::cout << " >> No potions!" << std::endl;
-        }
+    }
+
+    void restoreFull() {
+        hp = maxHp;
+        std::cout << "You are fully rested." << std::endl;
     }
 };
 
-class Person : public Character {
+// === 4. РАСЫ (с учетом ТЗ по характеристикам) ===
+
+class Human : public Character {
 public:
-    Person() : Character(
-        std::rand() % 50 + 50,
-        std::rand() % 10 + 1,
-        std::rand() % 10 + 1,
-        std::rand() % 10 + 1,
-        std::rand() % 100 + 100
-    ) {}
-    
-    virtual ~Person() {}
-
-    std::string getName() const override {
-        return "Mark Down";
-    }
+    Human() : Character(
+        "Human",
+        100 + (std::rand() % 20), // HP
+        10 + (std::rand() % 5),   // Atk
+        5 + (std::rand() % 3),    // Def
+        10 + (std::rand() % 5),   // Agi
+        170 + (std::rand() % 20), // Height (cm)
+        70 + (std::rand() % 20)   // Weight (kg)
+    ) { giveStarterLoot(); }
 };
 
-class Elfie : public Character {
+class Elf : public Character {
 public:
-    Elfie() : Character(
-        std::rand() % 100 + 100,
-        std::rand() % 20 + 5,
-        std::rand() % 20 + 5,
-        std::rand() % 20 + 5,
-        std::rand() % 100 + 100
-    ) {}
-
-    virtual ~Elfie() {}
-
-    std::string getName() const override {
-        return "Elfie A";
-    }
+    Elf() : Character(
+        "Elf",
+        80 + (std::rand() % 20),
+        8 + (std::rand() % 5),
+        3 + (std::rand() % 3),
+        15 + (std::rand() % 10), // Высокая ловкость
+        180 + (std::rand() % 15), // Высокий рост
+        60 + (std::rand() % 10)   // Легкий вес
+    ) { giveStarterLoot(); }
 };
 
-class Dwarves : public Character {
+class Dwarf : public Character {
 public:
-    Dwarves() : Character(
-       std::rand() % 200 + 200,
-       std::rand() % 30 + 10,
-       std::rand() % 30 + 10,
-       std::rand() % 30 + 10,
-       std::rand() % 100 + 100
-    ) {}
-
-    virtual ~Dwarves() {}
-
-    std::string getName() const override {
-        return "Dwarves D";
-    }
+    Dwarf() : Character(
+        "Dwarf",
+        120 + (std::rand() % 30), // Много HP
+        12 + (std::rand() % 5),
+        8 + (std::rand() % 5),    // Много защиты
+        5 + (std::rand() % 5),    // Мало ловкости
+        130 + (std::rand() % 10), // Низкий рост
+        80 + (std::rand() % 20)   // Тяжелый вес
+    ) { giveStarterLoot(); }
 };
 
+// === 5. ВРАГИ ===
 class Enemy : public Character {
 private:
     int xpReward;
 public:
-    // Конструктор принимает указатель на игрока для балансировки
-    Enemy(Character* player) : Character(0, 0, 0, 0, player->getLevel()) {
-
+    // Враг скалируется от уровня игрока И номера этажа (ТЗ п.6)
+    Enemy(Character* player, int floor) 
+        : Character("Monster", 0,0,0,0,0,0) // Базовые нули, перезапишем
+    {
         int pLvl = player->getLevel();
+        
+        // Сложность растет с этажом
+        double difficultyMult = 1.0 + (floor * 0.2); 
 
-        // Враг должен жить примерно 3-4 хода при текущем уроне игрока.
         int playerDmg = std::max(5, player->getRawTotalAttack());
-        this->maxHp = (playerDmg * 3) + (std::rand() % playerDmg);
-        // Минимум ХП для врага (чтобы на 1 уровне не было слишком мало)
-        if (this->maxHp < 40 + (pLvl * 10)) this->maxHp = 40 + (pLvl * 10);
+        
+        this->maxHp = static_cast<int>((playerDmg * 3 * difficultyMult) + (std::rand() % 10));
         this->hp = this->maxHp;
 
-        // Враг должен пробивать защиту игрока и наносить ощутимый урон.
-        // Цель: снимать ~1/5 или 1/6 здоровья игрока за удар "чистыми".
-        int playerDef = player->getRawTotalDefense();
-        int desiredDmg = player->getMaxHP() / 6;
-        if (desiredDmg < 5) desiredDmg = 5;
+        this->attack = static_cast<int>((player->getRawTotalDefense() + 5) * difficultyMult);
+        this->defense = floor; 
+        this->agility = 5 + floor;
 
-        // Атака врага = Защита игрока + Желаемый чистый урон + Рандом
-        this->attack = playerDef + desiredDmg + (std::rand() % 4);
-
-        // Баланс ловкости и защиты
-        this->defense = pLvl * 2; // Символическая защита
-        this->agility = 5 + pLvl;
-
-        // Награда
-        this->xpReward = 25 + (pLvl * 15);
+        this->xpReward = static_cast<int>(25 * difficultyMult);
+        this->raceName = "Dungeon Beast";
     }
-
-    std::string getName() const override { return "Monster"; }
-    int getXpReward() const { return xpReward; }
 
     void attackPlayer(Character* target, bool dodging) {
-        std::cout << "\n[ENEMY TURN] Monster attacks!" << std::endl;
-        int dmg = calculateTotalDamage();
+        std::cout << "\n[ENEMY] Beast attacks!" << std::endl;
+        int dmg = attack; // У монстров простая атака
         target->takeDamage(dmg, dodging);
     }
+
+    int getXpReward() const { return xpReward; }
 };
 
-// Функция боя
+// === 6. СИСТЕМА БОЯ ===
+
 void battle(Character* player, Enemy* enemy) {
     std::cout << "\n!!! COMBAT STARTED !!!" << std::endl;
     while (player->isAlive() && enemy->isAlive()) {
-        // Отображение ХП
-        std::cout << "\n================= BATTLE STATS =================" << std::endl;
-        std::cout << " [PLAYER] " << player->getName() << ": \t"
-            << player->getHP() << " / " << player->getMaxHP() << " HP" << std::endl;
-        std::cout << " [ENEMY]  " << enemy->getName() << ": \t"
-            << enemy->getHP() << " / " << enemy->getMaxHP() << " HP" << std::endl;
-        std::cout << "================================================" << std::endl;
-
-        std::cout << "\nChoose: 1.Attack 2.Heal 3.Dodge 4.Inventory\n> ";
-        int choice;
+        std::cout << "\n[PLAYER HP]: " << player->getHP() << " | [ENEMY HP]: " << enemy->getHP() << std::endl;
+        
+        std::cout << "1.Attack 2.Potion 3.Dodge 4.Inventory\n> ";
+        char choice;
         std::cin >> choice;
         bool dodging = false;
 
         switch (choice) {
-        case 1:
-            enemy->takeDamage(player->calculateTotalDamage(), false);
-            break;
-        case 2:
-            player->heal();
-            break;
-        case 3:
-            dodging = true;
-            break;
-        case 4:
-            player->checkInventory();
-            break;
-        default: std::cout << "Missed turn!" << std::endl;
+            case '1': enemy->takeDamage(player->calculateTotalDamage(), false); break;
+            case '2': player->healPotion(); break;
+            case '3': dodging = true; break;
+            case '4': player->manageInventory(); break;
+            default: std::cout << "Missed turn!" << std::endl;
         }
 
         if (enemy->isAlive()) {
             enemy->attackPlayer(player, dodging);
-        }
-        else {
-            std::cout << "\nVICTORY! Enemy defeated." << std::endl;
+        } else {
+            std::cout << "\nVICTORY!" << std::endl;
+            player->gainXp(enemy->getXpReward());
+            
+            // ТЗ п.8: Лут с врагов
+            std::cout << "Enemy dropped loot!" << std::endl;
+            player->pickUp(generateRandomLoot());
         }
     }
 }
 
+// === 7. КОМНАТЫ И ГЕНЕРАЦИЯ ===
+
 class Room {
-protected:
-   
 public:
     virtual ~Room() {}
-
-    virtual std::string getType() const = 0; // Для предпросмотра (что видит игрок)
-    virtual void enter(Character* player) = 0; // Что происходит внутри
+    virtual std::string getType() const = 0;
+    virtual void enter(Character* player, int floor) = 0;
 };
 
 class Room_Relax : public Room {
 public:
-    std::string getType() const override { return "Campfire (Safe)"; }
-    void enter(Character* player) override {
-        std::cout << "\nYou found a safe campfire." << std::endl;
-        std::cout << "You rest and recover 20 HP." << std::endl;
-        int healAmount = 20;
-
-        // --- ПРОВЕРКА НА ПРОКАЧКУ ---
+    std::string getType() const override { return "Safe Campfire"; }
+    void enter(Character* player, int floor) override {
+        std::cout << "\nYou rest at the campfire." << std::endl;
+        player->restoreFull();
+        // ТЗ п.3.1: Распределение очков только в комнатах отдыха (или можно всегда, но тут атмосфернее)
         if (player->getSkillPoints() > 0) {
-            std::cout << "\n(!) You have " << player->getSkillPoints() << " unspent skill points!" << std::endl;
-            std::cout << "Would you like to train? (y/n): ";
-            char ans;
-            std::cin >> ans;
-            if (ans == 'y') {
-                player->distributeSkillPoints();
-            }
-        }
-        else {
-            std::cout << "You have no skill points to spend right now." << std::endl;
+            std::cout << "You have skill points!" << std::endl;
+            player->distributeSkillPoints();
         }
     }
 };
 
 class Room_Chest : public Room {
-
 public:
-
-    std::string getType() const override { return "Room Chest"; }
-
-    void enter(Character* player) override {
-        std::cout << "There is Room Chest. It's time to take items!" << std::endl;
-        std::cout << "You found a chest!" << std::endl;
-
-        int chance = std::rand() % 100;
-        Item* loot = nullptr;
-
-        if (chance < 40) loot = new Coin();
-        else if (chance < 70) loot = new Potion_Health();
-        else if (chance < 85) loot = new Glock_17();
-        else if (chance < 95) loot = new Kevlar_Vest();
-        else loot = new Annihilator_Cannon();
-
-        std::cout << "You obtained: " << loot->getName() << std::endl;
-        player->pickUp(loot);
+    std::string getType() const override { return "Treasure Room"; }
+    void enter(Character* player, int floor) override {
+        std::cout << "You found a Chest!" << std::endl;
+        player->pickUp(generateRandomLoot());
     }
 };
 
 class Room_Enemy : public Room {
 public:
     std::string getType() const override { return "Monster Lair"; }
-    void enter(Character* player) override {
-        std::cout << "\n--- DANGER ---" << std::endl;
-        std::cout << "Something moves in the dark..." << std::endl;
-
-        // Передаем игрока в конструктор врага для балансировки
-        Enemy* enemy = new Enemy(player);
+    void enter(Character* player, int floor) override {
+        std::cout << "\n--- FLOOR " << floor << " ENCOUNTER ---" << std::endl;
+        Enemy* enemy = new Enemy(player, floor);
         battle(player, enemy);
         delete enemy;
     }
 };
 
-
-
-// Функция для генерации случайной комнаты
 Room* generateRandomRoom() {
     int r = std::rand() % 100;
-    if (r < 30) return new Room_Relax(); // 30%
-    if (r < 60) return new Room_Chest(); // 30%
-    return new Room_Enemy();             // 40%
+    if (r < 25) return new Room_Relax();
+    if (r < 50) return new Room_Chest();
+    return new Room_Enemy();
 }
 
-int main()
-{
+// === 8. ГЛАВНОЕ МЕНЮ И ЦИКЛ ===
+
+int main() {
     std::srand(static_cast<unsigned int>(std::time(0)));
+std::cout << "=== TEXT RPG DUNGEON ===" << std::endl;
+    
+    // ТЗ п.2.1: Выбор расы
+    Character* player = nullptr;
+    while (player == nullptr) {
+        std::cout << "Select Race:\n1. Human (Balanced)\n2. Elf (Agile, Frail)\n3. Dwarf (Tough, Slow)\n> ";
+        int choice;
+        std::cin >> choice;
+        if (choice == 1) player = new Human();
+        else if (choice == 2) player = new Elf();
+        else if (choice == 3) player = new Dwarf();
+        else std::cout << "Invalid choice." << std::endl;
+    }
 
-    std::cout << "Welcome to the ENDLESS DUNGEON." << std::endl;
-    std::cout << "Try to survive as long as possible.\n" << std::endl;
+    std::cout << "\nCharacter Created!" << std::endl;
+    player->printStats();
 
-    Character* player = new Person();
-
-    // Первая комната всегда пустая для разгона
     Room* currentRoom = new Room_Relax();
     int roomsCleared = 0;
+    int currentFloor = 1;
 
+    // ТЗ п.5.1: Игровой цикл
     while (player->isAlive()) {
-        // 1. Вход в текущую комнату
-        currentRoom->enter(player);
+        currentRoom->enter(player, currentFloor);
 
-        if (!player->isAlive()) break; // Если умер в комнате
+        if (!player->isAlive()) break;
 
         roomsCleared++;
-        std::cout << "\nRooms cleared: " << roomsCleared << std::endl;
+        // ТЗ п.6: Каждые N (5) комнат - новый этаж
+        if (roomsCleared % 5 == 0) {
+            currentFloor++;
+            std::cout << "\n>>> DESCENDING TO FLOOR " << currentFloor << " (Enemies are stronger!) <<<" << std::endl;
+        }
 
-        // 2. Генерация развилки
         Room* leftRoom = generateRandomRoom();
         Room* rightRoom = generateRandomRoom();
 
-        // 3. Механика видимости (50% шанс увидеть)
+        // ТЗ п.5.3: Видимость (рандом)
         bool canSee = (std::rand() % 2) == 0;
 
-        std::cout << "\nThere is a fork in the path..." << std::endl;
+        std::cout << "\n--- Fork in the path ---" << std::endl;
         if (canSee) {
-            std::cout << "[Visibility: HIGH] You can see down the corridors:" << std::endl;
-            std::cout << "LEFT:  " << leftRoom->getType() << std::endl;
-            std::cout << "RIGHT: " << rightRoom->getType() << std::endl;
-        }
-        else {
-            std::cout << "[Visibility: ZERO] It is too dark to see what's ahead." << std::endl;
-            std::cout << "LEFT:  ???" << std::endl;
-            std::cout << "RIGHT: ???" << std::endl;
+            std::cout << "[Light] You see: (L) " << leftRoom->getType() << " | (R) " << rightRoom->getType() << std::endl;
+        } else {
+            std::cout << "[Darkness] You cannot see what lies ahead." << std::endl;
         }
 
-        // 4. Выбор игрока
         char choice;
         while (true) {
-            std::cout << "Choose direction (l/r) or (i)nventory: ";
+            std::cout << "Go (l)eft, (r)ight, (i)nventory, (s)tats: ";
             std::cin >> choice;
             if (choice == 'l' || choice == 'r') break;
-            if (choice == 'i') player->checkInventory();
+            if (choice == 'i') player->manageInventory();
+            if (choice == 's') player->printStats();
         }
 
-        // 5. Переход и очистка памяти
-        delete currentRoom; // Удаляем старую комнату
+        delete currentRoom;
 
         if (choice == 'l') {
-            std::cout << "You turn LEFT..." << std::endl;
             currentRoom = leftRoom;
-            delete rightRoom; // Удаляем ту, в которую не пошли
-        }
-        else {
-            std::cout << "You turn RIGHT..." << std::endl;
+            delete rightRoom;
+        } else {
             currentRoom = rightRoom;
-            delete leftRoom; // Удаляем ту, в которую не пошли
+            delete leftRoom;
         }
     }
 
-    std::cout << "\n===================================" << std::endl;
-    std::cout << "GAME OVER" << std::endl;
-    std::cout << "You cleared " << roomsCleared << " rooms." << std::endl;
-    std::cout << "===================================" << std::endl;
-
-    delete currentRoom;
+    std::cout << "\nGAME OVER. You reached Floor " << currentFloor << "." << std::endl;
     delete player;
+    delete currentRoom;
 
     return 0;
 }
